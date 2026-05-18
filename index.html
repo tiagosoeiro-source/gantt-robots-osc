@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt Chart — Robots OSC (Atualizado Abril 2026)</title>
+<style>
+:root{--bg-primary:#fff;--bg-secondary:#f6f8fa;--bg-tertiary:#eef1f5;--bg-card:#f0f3f7;--border:#d0d7de;--text-primary:#1f2328;--text-secondary:#656d76;--text-muted:#8b949e;--accent:#00a0e4;--accent-light:#0077b3;--accent-dark:#005a8c;--danger:#cf222e;--success:#1a7f37;--warning:#9a6700}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh}
+.header{background:linear-gradient(135deg,#e8f4fd 0%,#f0f7fc 50%,#f6f8fa 100%);border-bottom:1px solid var(--border);padding:20px 30px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:15px}
+.header h1{font-size:1.5em;font-weight:600;color:var(--accent-dark);display:flex;align-items:center;gap:10px}
+.header h1 span{font-size:.55em;color:var(--text-secondary);font-weight:400}
+.summary-cards{display:flex;gap:12px;flex-wrap:wrap}
+.summary-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:120px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.summary-card .value{font-size:1.2em;font-weight:700;color:var(--accent-dark)}
+.summary-card .label{font-size:.72em;color:var(--text-secondary);margin-top:2px}
+.controls{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:12px 30px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.control-group{display:flex;flex-direction:column;gap:5px}
+.control-group>label.cg-title{font-size:.75em;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.control-group select{background:#fff;border:1px solid var(--border);color:var(--text-primary);padding:6px 10px;border-radius:6px;font-size:.85em;cursor:pointer;outline:none}
+.control-group select:focus{border-color:var(--accent)}
+.cb-group{display:flex;flex-wrap:wrap;gap:6px;max-width:650px}
+.cb-group label{display:flex;align-items:center;gap:4px;font-size:.8em;color:var(--text-primary);cursor:pointer;background:#fff;padding:3px 9px;border-radius:4px;border:1px solid var(--border);transition:.2s}
+.cb-group label:hover{border-color:var(--accent);background:var(--bg-tertiary)}
+.area-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.toggle-label{display:flex;align-items:center;gap:7px;font-size:.85em;color:var(--text-primary);cursor:pointer;background:#fff;padding:6px 12px;border-radius:6px;border:1px solid var(--border);user-select:none}
+.toggle-label input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+.gantt-wrapper{padding:15px 30px;overflow-x:auto}
+.gantt-container{display:flex;min-width:1200px;position:relative}
+.gantt-labels{flex-shrink:0;width:270px;border-right:1px solid var(--border);z-index:10;background:var(--bg-primary);position:sticky;left:0}
+.gantt-chart-area{flex:1;position:relative;overflow:visible}
+.label-header{height:44px;display:flex;align-items:center;background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 12px;font-weight:600;font-size:.78em;color:var(--text-secondary)}
+.area-header-lbl{height:28px;display:flex;align-items:center;padding:0 12px;font-weight:700;font-size:.75em;color:var(--text-primary);background:var(--bg-tertiary);border-bottom:1px solid var(--border);gap:7px;text-transform:uppercase;letter-spacing:.5px}
+.area-header-bar{height:28px;background:var(--bg-tertiary);border-bottom:1px solid var(--border)}
+.row-lbl{height:36px;display:flex;align-items:center;padding:0 10px;font-size:.8em;border-bottom:1px solid rgba(200,210,220,.6);cursor:pointer;transition:background .15s;gap:7px}
+.row-lbl:hover{background:var(--bg-tertiary)}
+.row-lbl.inactive{opacity:.45}
+.row-lbl .rid{color:var(--text-muted);font-size:.78em;min-width:38px;font-weight:600}
+.row-lbl .rname{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-bar{height:36px;position:relative;border-bottom:1px solid rgba(200,210,220,.6);cursor:pointer}
+.row-bar:hover{background:rgba(0,160,228,.06)}
+.gantt-bar{position:absolute;top:5px;height:26px;border-radius:4px;display:flex;align-items:center;padding:0 7px;font-size:.68em;font-weight:600;color:#fff;cursor:pointer;transition:filter .15s,transform .1s;overflow:hidden;white-space:nowrap;min-width:4px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.gantt-bar:hover{filter:brightness(1.15);transform:scaleY(1.1);z-index:2}
+.gantt-bar.striped{opacity:.4;background-image:repeating-linear-gradient(-45deg,transparent,transparent 4px,rgba(0,0,0,.12) 4px,rgba(0,0,0,.12) 8px)!important}
+.today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--danger);z-index:3;pointer-events:none}
+.today-line::before{content:'HOJE';position:absolute;top:-16px;left:-14px;font-size:.62em;font-weight:700;color:var(--danger);background:#fff;padding:1px 4px;border-radius:3px;border:1px solid var(--danger)}
+.vgrid{position:absolute;top:0;bottom:0;width:1px;background:rgba(200,210,220,.5);pointer-events:none}
+.timeline-row{height:44px;position:relative;background:var(--bg-secondary);border-bottom:1px solid var(--border)}
+.tl-year{position:absolute;top:0;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.78em;color:var(--accent-dark);border-left:2px solid var(--border)}
+.tl-month{position:absolute;top:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.62em;color:var(--text-muted);border-left:1px solid rgba(200,210,220,.6)}
+.detail-panel{display:none;background:var(--bg-card);border:1px solid var(--accent);border-radius:8px;margin:8px 30px 12px 30px;padding:16px 20px;animation:fadeIn .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.detail-panel.open{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.detail-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.detail-header .dh-name{font-size:1.05em;font-weight:700;color:var(--accent-dark)}
+.detail-header .dh-nick{font-size:.82em;color:var(--text-secondary)}
+.detail-header .dh-badge{font-size:.72em;padding:2px 8px;border-radius:10px;color:#fff;font-weight:600}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.detail-item .dl{font-size:.7em;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:1px}
+.detail-item .dv{font-size:.88em;color:var(--text-primary)}
+.detail-item .dv.hl{color:var(--accent-dark);font-weight:600}
+.tooltip{position:fixed;background:#fff;border:1px solid var(--accent);border-radius:6px;padding:10px 14px;font-size:.8em;z-index:100;pointer-events:none;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.1);display:none;color:var(--text-primary)}
+.tooltip .tt-name{font-weight:700;color:var(--accent-dark);margin-bottom:4px}
+.tooltip .tt-row{display:flex;justify-content:space-between;gap:12px}
+.tooltip .tt-l{color:var(--text-muted)}
+.tooltip .tt-v{color:var(--text-primary);font-weight:600}
+.nodate-section{margin-top:18px;border-top:2px solid var(--border);padding-top:14px}
+.nodate-section h3{font-size:.88em;color:var(--text-secondary);margin-bottom:10px;padding-left:10px}
+.nodate-cards{display:flex;flex-wrap:wrap;gap:10px;padding:0 10px}
+.nd-card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:10px 14px;min-width:190px;max-width:280px;cursor:pointer;transition:.2s;flex:1;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.nd-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,160,228,.12)}
+.nd-card .nid{font-size:.72em;color:var(--text-muted)}
+.nd-card .nname{font-weight:600;font-size:.85em;margin:2px 0;color:var(--text-primary)}
+.nd-card .narea{font-size:.72em;padding:2px 7px;border-radius:10px;display:inline-block}
+.nd-card .ndesc{font-size:.75em;color:var(--text-secondary);margin-top:4px}
+.nd-card .nstats{font-size:.75em;color:var(--accent-dark);margin-top:4px;font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:12px;padding:10px 30px;border-top:1px solid var(--border);background:var(--bg-secondary)}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:.76em;color:var(--text-secondary)}
+.legend-color{width:14px;height:14px;border-radius:3px}
+.legend-striped{width:14px;height:14px;border-radius:3px;opacity:.45;background:#888;background-image:repeating-linear-gradient(-45deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px)}
+</style>
+</head>
+<body>
+<div id="tooltip" class="tooltip"></div>
+<div class="header">
+    <h1>&#128202; Gantt Chart &mdash; Robots OSC <span>Atualizado: Abril 2026</span></h1>
+    <div class="summary-cards" id="summaryCards"></div>
+</div>
+<div class="controls">
+    <div class="control-group">
+        <label class="cg-title">Ordenar por</label>
+        <select id="sortSelect" onchange="renderGantt()">
+            <option value="area">&Aacute;rea</option>
+            <option value="date">Antiguidade (mais antigo primeiro)</option>
+            <option value="savings">Poupan&ccedil;a (maior primeiro)</option>
+        </select>
+    </div>
+    <div class="control-group">
+        <label class="cg-title">Filtrar por &Aacute;rea</label>
+        <div class="cb-group" id="areaFilters"></div>
+    </div>
+    <div class="control-group">
+        <label class="cg-title">&nbsp;</label>
+        <label class="toggle-label">
+            <input type="checkbox" id="showInactive" checked onchange="renderGantt()">
+            Mostrar desativos
+        </label>
+    </div>
+</div>
+<div class="gantt-wrapper" id="ganttWrapper"><div id="ganttContent"></div></div>
+<div id="detailPanel" class="detail-panel"></div>
+<div class="legend" id="legendBar"></div>
+
+<script>
+const TODAY=new Date(2026,4,15);
+const TL_START=new Date(2021,6,1);
+const TL_END=new Date(2026,8,1);
+const CHART_W=1800;
+const AREA_COLORS={'LSV':'#2d7dd2','OPT/ORD':'#45b7d1','OEM/OOE':'#f97316','OEM/OOM':'#a855f7','OPT/OPP':'#16a34a','PRJ':'#ef4444','PDB2B':'#ca8a04','OEB2B':'#db2777','DOC':'#64748b'};
+const AREA_ORDER=['LSV','OPT/ORD','OPT/OPP','OEM/OOE','OEM/OOM','PRJ','PDB2B','OEB2B','DOC'];
+const MONTHS_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+const robots=[
+{id:"RPA01",num:1,name:"Inser\u00e7\u00e3o Vendas",nick:"Offline",area:"LSV",desc:"Inser\u00e7\u00e3o de vendas em SFA dos canais D2D, Parcerias, GC e DRD com informa\u00e7\u00e3o de APOLO",sys:"APOLO, SFA",impl:new Date(2022,1,1),elim:null,sr:0.9866,act:4699,sav:10233},
+{id:"RPA02",num:2,name:"Migra\u00e7\u00e3o de Clientes",nick:"",area:"OPT/ORD",desc:"Desligamentos em mudan\u00e7as de casa e migra\u00e7\u00f5es em CRM",sys:"ATLAS, CRM, SFA, SIREL, MOBILIX",impl:new Date(2023,10,1),elim:null,sr:0.8573,act:638,sav:777},
+{id:"RPA03",num:3,name:"Valida\u00e7\u00e3o Vendas TMK",nick:"",area:"LSV",desc:"Simula venda TMK para verificar erros, fraudes e moradas incorretas",sys:"SFA, APOLO",impl:new Date(2022,1,1),elim:new Date(2023,4,1),sr:0,act:0,sav:0},
+{id:"RPA04",num:4,name:"OE M\u00f3vel",nick:"",area:"OEM/OOE",desc:"Corrige vendas m\u00f3vel em MOBILIX com Order Entry em SFA",sys:"CRM, NSOM, MOBILIX, SFA",impl:new Date(2022,0,1),elim:null,sr:0.8979,act:2878,sav:5884},
+{id:"RPA05",num:5,name:"Migra\u00e7\u00f5es Fibra",nick:"Manecas",area:"LSV",desc:"Migra\u00e7\u00f5es de Wireless e ADSL para Fibra com inser\u00e7\u00e3o em SFA",sys:"CRM, SFA",impl:new Date(2022,0,1),elim:null,sr:0.7272,act:1154,sav:1617},
+{id:"RPA06",num:6,name:"Inser\u00e7\u00e3o Ordens Venda SAP",nick:"",area:"OEM/OOE",desc:"Expedi\u00e7\u00e3o de equipamentos em SAP (voucher, presta\u00e7\u00f5es, etc.)",sys:"ATLAS, SAP",impl:new Date(2022,0,1),elim:null,sr:0.9552,act:1998,sav:2299},
+{id:"RPA07",num:7,name:"Desligamentos M\u00f3veis BLM",nick:"",area:"OPT/ORD",desc:"Desativa\u00e7\u00e3o do cart\u00e3o/servi\u00e7o BLM em MOBILIX",sys:"CRM, MOBILIX",impl:new Date(2021,8,1),elim:null,sr:0.9792,act:1409,sav:1841},
+{id:"RPA08",num:8,name:"Desligamentos M\u00f3veis Voz M\u00f3vel",nick:"",area:"OPT/ORD",desc:"Desativa\u00e7\u00e3o de Voz M\u00f3vel em MOBILIX",sys:"CRM, MOBILIX",impl:new Date(2022,4,1),elim:null,sr:0.9413,act:1996,sav:2507},
+{id:"RPA09",num:9,name:"Altera\u00e7\u00e3o Titularidade",nick:"",area:"OEM/OOE",desc:"Altera\u00e7\u00f5es de titularidade em SFA, SIREL e MOBILIX (em conjunto com RPA19)",sys:"SFA, SIREL, MOBILIX",impl:new Date(2022,6,1),elim:null,sr:0.7353,act:1535,sav:3236},
+{id:"RPA10",num:10,name:"Altera\u00e7\u00e3o Extra Mensalidade",nick:"",area:"OEM/OOE",desc:"Altera\u00e7\u00e3o da oferta m\u00f3vel extramensalidade a pedido da Reten\u00e7\u00e3o",sys:"CRM, MOBILIX",impl:new Date(2022,5,1),elim:null,sr:0.9893,act:117,sav:73},
+{id:"RPA11",num:11,name:"Campanha Equip. Reten\u00e7\u00e3o",nick:"",area:"OEM/OOE",desc:"Ades\u00f5es ou troca de Boxes Android a pedido da Reten\u00e7\u00e3o com agendamento",sys:"CRM, SIREL",impl:new Date(2022,6,1),elim:null,sr:0.6727,act:2920,sav:2578},
+{id:"RPA12",num:12,name:"Agendamentos Futuros C1/C5",nick:"",area:"OEM/OOM",desc:"Carrega pedidos ATLAS e atribui pend\u00eancias C1, C5 e C6 em NSOM",sys:"ATLAS, NSOM",impl:new Date(2023,3,1),elim:null,sr:0.9807,act:2438,sav:1233},
+{id:"RPA13",num:13,name:"Expedi\u00e7\u00e3o BLM M3/M4/M5",nick:"",area:"OEM/OOE",desc:"Consulta ATLAS e faz venda de BLM em SFA com expedi\u00e7\u00e3o",sys:"ATLAS, SFA",impl:new Date(2023,3,1),elim:null,sr:0.9595,act:389,sav:440},
+{id:"RPA14",num:14,name:"Oferta Pack Bilhetes Festivais",nick:"",area:"OEM/OOE",desc:"Expedi\u00e7\u00e3o de pack bilhetes festivais com benef\u00edcios MEO (sazonal)",sys:"SAP, MOBILIX",impl:new Date(2023,5,1),elim:new Date(2023,8,1),sr:0,act:0,sav:0},
+{id:"RPA15",num:15,name:"Pessoal Convergente Ades\u00e3o",nick:"",area:"OEM/OOE",desc:"Corrige vendas m\u00f3vel convergente em MOBILIX com Order Entry em SFA",sys:"CRM, MOBILIX, SFA",impl:new Date(2023,3,1),elim:null,sr:0.8644,act:3893,sav:3107},
+{id:"RPA16",num:16,name:"Ativa\u00e7\u00e3o Cart\u00f5es Portabilidade",nick:"",area:"OPT/OPP",desc:"Ativa\u00e7\u00f5es de cart\u00f5es para portabilidade em PORTIX",sys:"CRM, PORTIX",impl:new Date(2023,3,1),elim:null,sr:0.8514,act:2544,sav:1660},
+{id:"RPA17",num:17,name:"Canal Digital",nick:"",area:"OEM/OOE",desc:"Upsell do Canal Digital (3P para 4P) em SFA",sys:"CRM, SFA",impl:new Date(2023,5,1),elim:null,sr:0.4615,act:7,sav:7},
+{id:"RPA18",num:18,name:"Moche \u2013 Atribui\u00e7\u00e3o Oferta",nick:"Ana Malhoa",area:"OPT/OPP",desc:"Portabilidade e ativa\u00e7\u00e3o de ofertas Moche em MOBILIX",sys:"MOBILIX",impl:new Date(2023,6,1),elim:new Date(2024,11,1),sr:0,act:0,sav:0},
+{id:"RPA19",num:19,name:"Alt. Titularidade Origem SFA",nick:"",area:"OEM/OOE",desc:"Traduz pedidos de altera\u00e7\u00f5es de titularidade de SFA para CRM (RPA9)",sys:"SFA, CRM",impl:new Date(2023,8,1),elim:null,sr:1.0,act:1263,sav:4593},
+{id:"RPA20",num:20,name:"Vendas Stock sem Stock F\u00edsico",nick:"",area:"OEM/OOE",desc:"Vendas SAP sem stock f\u00edsico (consigna\u00e7\u00e3o) \u2014 integrado no RPA6",sys:"ATLAS, SAP",impl:new Date(2023,8,1),elim:new Date(2024,8,1),sr:0,act:0,sav:0},
+{id:"RPA21",num:21,name:"Cria\u00e7\u00e3o de DCD",nick:"Freira Maldita",area:"OEM/OOE",desc:"Atribui\u00e7\u00e3o em CRM de DCD de campanhas Videoclube (pontual)",sys:"CRM",impl:new Date(2024,3,1),elim:null,sr:0,act:0,sav:0},
+{id:"RPA22",num:22,name:"Concluir Solicita\u00e7\u00e3o PortIn",nick:"",area:"OPT/OPP",desc:"Desbloqueio de venda e submiss\u00e3o de portabilidade em CRM",sys:"CRM, MOBILIX",impl:new Date(2024,3,1),elim:null,sr:0.8947,act:52,sav:76},
+{id:"RPA23",num:23,name:"Cria\u00e7\u00e3o REQ AN",nick:"",area:"OPT/OPP",desc:"Valida\u00e7\u00e3o e cria\u00e7\u00e3o de REQ AN em SIREL para portabilidade fixa",sys:"CRM, SFA",impl:new Date(2024,4,1),elim:null,sr:0.6963,act:788,sav:1185},
+{id:"RPA24",num:24,name:"Submiss\u00e3o Portabilidade Portix",nick:"",area:"OPT/OPP",desc:"Submiss\u00e3o de portabilidades MEO sem fios em PORTIX",sys:"CRM, PORTIX",impl:new Date(2024,4,1),elim:null,sr:0.9452,act:110,sav:171},
+{id:"RPA25",num:25,name:"NBO-R",nick:"",area:"OEM/OOE",desc:"Venda por campanha NBO Refideliza\u00e7\u00e3o no Canal Digital, submiss\u00e3o SFA",sys:"CRM, SFA",impl:new Date(2024,4,1),elim:null,sr:0.9259,act:378,sav:813},
+{id:"RPA26",num:26,name:"Des. Servi\u00e7o e Reat. Cart\u00e3o",nick:"",area:"OEM/OOE",desc:"Desativa\u00e7\u00e3o de Servi\u00e7os Suplementares ou Reativa\u00e7\u00e3o de cart\u00e3o m\u00f3vel",sys:"CRM, MOBILIX",impl:new Date(2024,6,1),elim:null,sr:0.6620,act:124,sav:108},
+{id:"RPA27",num:27,name:"Agendamentos Propostos RV",nick:"",area:"OEM/OOM",desc:"Envia SMS N-2 com proposta de instala\u00e7\u00e3o fibra, Rendez-Vous",sys:"ATLAS, NSOM",impl:new Date(2024,9,1),elim:null,sr:0.9501,act:2712,sav:4968},
+{id:"RPA28",num:28,name:"2\u00aa Via de Cart\u00e3o",nick:"",area:"OEM/OOE",desc:"Pedidos de 2\u00aa via de cart\u00e3o/Multi-SIM (sem atividade)",sys:"CRM, MOBILIX",impl:new Date(2024,9,1),elim:null,sr:0,act:0,sav:0},
+{id:"RPA29",num:29,name:"Envio Form. Alt. Titularidade",nick:"",area:"OEM/OOE",desc:"Envio de formul\u00e1rios de altera\u00e7\u00f5es de titularidade a pedido da Reten\u00e7\u00e3o",sys:"CRM",impl:new Date(2024,10,18),elim:null,sr:0.8452,act:598,sav:931},
+{id:"RPA30",num:30,name:"Validar Estado Portabilidade",nick:"",area:"OPT/OPP",desc:"Gest\u00e3o dos estados da portabilidade com origem na Reten\u00e7\u00e3o em SGP",sys:"SGP, CRM, CARBON",impl:new Date(2024,10,1),elim:null,sr:0.9041,act:1789,sav:2031},
+{id:"RPA31",num:31,name:"Desligamentos Wireless",nick:"",area:"OPT/ORD",desc:"Desligamentos da tecnologia wireless (sat\u00e9lites, etc.)",sys:"CRM, SIREL, MOBILIX, NSOM",impl:new Date(2025,4,1),elim:null,sr:0.6497,act:888,sav:1755},
+{id:"RPA32",num:32,name:"Desligamentos MEO GO Multi",nick:"",area:"OPT/ORD",desc:"Desligamentos do servi\u00e7o MEO GO Multi (CRM \u2192 SFA)",sys:"SFA, CRM",impl:new Date(2025,4,1),elim:null,sr:0.5634,act:166,sav:146},
+{id:"RPA33",num:33,name:"Campanha Outbound LEC RV",nick:"",area:"OEM/OOM",desc:"Identifica processos instala\u00e7\u00e3o fibra com pend\u00eancia C7 em ATLAS/NSOM",sys:"ATLAS, NSOM",impl:new Date(2025,6,9),elim:null,sr:0.9619,act:925,sav:375},
+{id:"RPA34",num:34,name:"Titularidade e Falso Desativo",nick:"",area:"OEM/OOE",desc:"Gest\u00e3o de titularidade e falso desativo",sys:"N/D",impl:null,elim:null,sr:0.8506,act:762,sav:1455},
+{id:"RPA35",num:35,name:"Desativa\u00e7\u00f5es Acessos",nick:"",area:"PRJ",desc:"Desativa\u00e7\u00f5es de acessos (em desenvolvimento)",sys:"N/D",impl:new Date(2026,3,23),elim:null,sr:0,act:0,sav:0}
+];
+
+const empRobots=[
+{id:"01 EMP",name:"Desligamentos M\u00f3veis",area:"PDB2B",desc:"Desligamentos autom\u00e1ticos dos servi\u00e7os m\u00f3veis em Mobilix (BLM, voz m\u00f3vel)",sys:"MOBILIX"},
+{id:"02 EMP",name:"Pessoal SFA",area:"OEB2B",desc:"Truncados m\u00f3vel B2B",sys:"SFA"},
+{id:"03 EMP",name:"Pessoal SFA Convergente",area:"OEB2B",desc:"Truncados convergente B2B",sys:"SFA"},
+{id:"04 EMP",name:"Portabilidade",area:"PDB2B",desc:"Ativa\u00e7\u00e3o de cart\u00f5es portados",sys:"PORTIX"},
+{id:"05 EMP",name:"REQ NA PORT",area:"PDB2B",desc:"Requisi\u00e7\u00e3o de altera\u00e7\u00e3o de n\u00famero por portabilidade",sys:"SIREL"},
+{id:"06 EMP",name:"Reservado",area:"PDB2B",desc:"Reservado",sys:"\u2014"},
+{id:"0? EMP",name:"DOC MobE",area:"DOC",desc:"Ades\u00e3o \u00e0 mobilidade el\u00e9trica (recolhe para B2B e B2C)",sys:"\u2014"},
+{id:"07 EMP",name:"Vendas Massivas",area:"OEB2B",desc:"Execu\u00e7\u00e3o pontual de vendas massivas",sys:"SFA"}
+];
+
+function isOff(r){return r.elim!==null}
+function hasD(r){return r.impl!==null}
+function d2px(d){const t=TL_END-TL_START;return((d-TL_START)/t)*CHART_W}
+function fD(d){if(!d)return'N/D';return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()}
+function fP(v){return v?(v*100).toFixed(1)+'%':'0%'}
+function fN(v){return v?v.toLocaleString('pt-PT'):'0'}
+function fE(v){return v?v.toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2})+' \u20ac':'0 \u20ac'}
+
+let openId=null;
+function getAreas(){return[...document.querySelectorAll('.acb')].filter(c=>c.checked).map(c=>c.value)}
+
+function buildSummary(){
+    const a=robots.filter(r=>!isOff(r));
+    const ts=a.reduce((s,r)=>s+r.sav,0);
+    const ta=a.reduce((s,r)=>s+r.act,0);
+    document.getElementById('summaryCards').innerHTML=`
+        <div class="summary-card"><div class="value">${a.length}</div><div class="label">Robots Ativos</div></div>
+        <div class="summary-card"><div class="value">${robots.filter(r=>isOff(r)).length}</div><div class="label">Desativos</div></div>
+        <div class="summary-card"><div class="value">${empRobots.length}</div><div class="label">Robots EMP</div></div>
+        <div class="summary-card"><div class="value">${fE(ts)}</div><div class="label">Poupan\u00e7a Mensal</div></div>
+        <div class="summary-card"><div class="value">${fN(ta)}</div><div class="label">Atividades Mensais</div></div>`;
+}
+
+function buildFilters(){
+    const areas=[...new Set(robots.map(r=>r.area))].sort((a,b)=>AREA_ORDER.indexOf(a)-AREA_ORDER.indexOf(b));
+    document.getElementById('areaFilters').innerHTML=areas.map(a=>
+        `<label><input type="checkbox" class="acb" value="${a}" checked onchange="renderGantt()"><span class="area-dot" style="background:${AREA_COLORS[a]||'#666'}"></span>${a}</label>`
+    ).join('');
+}
+
+function buildLegend(){
+    const areas=[...new Set(robots.map(r=>r.area))].sort((a,b)=>AREA_ORDER.indexOf(a)-AREA_ORDER.indexOf(b));
+    document.getElementById('legendBar').innerHTML=
+        areas.map(a=>`<div class="legend-item"><div class="legend-color" style="background:${AREA_COLORS[a]||'#666'}"></div>${a}</div>`).join('')+
+        `<div class="legend-item"><div class="legend-striped"></div>Desativo</div>`+
+        `<div class="legend-item" style="gap:3px"><div style="width:14px;height:2px;background:var(--danger)"></div>Hoje (15/05/2026)</div>`;
+}
+
+function renderGantt(){
+    const sortBy=document.getElementById('sortSelect').value;
+    const showOff=document.getElementById('showInactive').checked;
+    const areas=getAreas();
+    let list=robots.filter(r=>{
+        if(!showOff&&isOff(r))return false;
+        if(!areas.includes(r.area))return false;
+        if(!hasD(r))return false;
+        return true;
+    });
+    if(sortBy==='area'){list.sort((a,b)=>{const ai=AREA_ORDER.indexOf(a.area),bi=AREA_ORDER.indexOf(b.area);if(ai!==bi)return ai-bi;return a.impl-b.impl})}
+    else if(sortBy==='date'){list.sort((a,b)=>a.impl-b.impl)}
+    else{list.sort((a,b)=>b.sav-a.sav)}
+
+    const todayPx=d2px(TODAY);
+    let tlHTML='',gridHTML='';
+    for(let y=2021;y<=2026;y++){
+        for(let m=0;m<12;m++){
+            const ms=new Date(y,m,1),me=new Date(y,m+1,1);
+            if(me<=TL_START||ms>=TL_END)continue;
+            const l=d2px(ms<TL_START?TL_START:ms),r=d2px(me>TL_END?TL_END:me),w=r-l;
+            tlHTML+=`<div class="tl-month" style="left:${l}px;width:${w}px">${MONTHS_PT[m]}</div>`;
+            gridHTML+=`<div class="vgrid" style="left:${l}px"></div>`;
+        }
+        const ys=new Date(y,0,1),ye=new Date(y+1,0,1);
+        if(ye<=TL_START||ys>=TL_END)continue;
+        const l=d2px(ys<TL_START?TL_START:ys),r=d2px(ye>TL_END?TL_END:ye);
+        tlHTML+=`<div class="tl-year" style="left:${l}px;width:${r-l}px">${y}</div>`;
+    }
+
+    let lblHTML='<div class="label-header">Robot</div>',barHTML='',curArea=null;
+    for(const r of list){
+        if(sortBy==='area'&&r.area!==curArea){
+            curArea=r.area;
+            lblHTML+=`<div class="area-header-lbl"><span class="area-dot" style="background:${AREA_COLORS[r.area]}"></span>${r.area}</div>`;
+            barHTML+=`<div class="area-header-bar"></div>`;
+        }
+        const off=isOff(r),dn=r.nick?`${r.name} (${r.nick})`:r.name;
+        lblHTML+=`<div class="row-lbl ${off?'inactive':''}" onclick="toggleDetail('${r.id}')" data-id="${r.id}"><span class="rid">#${r.num}</span><span class="rname">${dn}</span></div>`;
+        const sx=d2px(r.impl),endD=r.elim||TODAY,ex=d2px(endD),bw=Math.max(ex-sx,4),col=AREA_COLORS[r.area]||'#666';
+        barHTML+=`<div class="row-bar" onclick="toggleDetail('${r.id}')" data-id="${r.id}" onmouseenter="showTT(event,'${r.id}')" onmousemove="moveTT(event)" onmouseleave="hideTT()"><div class="gantt-bar ${off?'striped':''}" style="left:${sx}px;width:${bw}px;background-color:${col}">${bw>90?r.name:''}</div></div>`;
+    }
+
+    let ndHTML='';
+    const r34=robots.find(r=>r.num===34),show34=r34&&areas.includes(r34.area);
+    if(show34||empRobots.length>0){
+        ndHTML+=`<div class="nodate-section"><h3>&#128313; Robots sem data PRD / Robots EMP (Empresarial)</h3><div class="nodate-cards">`;
+        if(show34){
+            const c=AREA_COLORS[r34.area];
+            ndHTML+=`<div class="nd-card" onclick="toggleDetail34()"><div class="nid">#${r34.num}</div><div class="nname">${r34.name}</div><div class="narea" style="background:${c}22;color:${c}">${r34.area}</div><div class="ndesc">${r34.desc}</div><div class="nstats">Poupan\u00e7a: ${fE(r34.sav)} &middot; Atividades: ${fN(r34.act)}/m\u00eas &middot; Sucesso: ${fP(r34.sr)}</div></div>`;
+        }
+        for(const e of empRobots){
+            const c=AREA_COLORS[e.area]||'#666';
+            ndHTML+=`<div class="nd-card" onclick="toggleDetailEMP('${e.id}')"><div class="nid">${e.id}</div><div class="nname">${e.name}</div><div class="narea" style="background:${c}22;color:${c}">${e.area}</div><div class="ndesc">${e.desc}</div><div class="nstats">Sistemas: ${e.sys}</div></div>`;
+        }
+        ndHTML+=`</div></div>`;
+    }
+
+    document.getElementById('ganttContent').innerHTML=`<div class="gantt-container"><div class="gantt-labels">${lblHTML}</div><div class="gantt-chart-area" style="width:${CHART_W}px;position:relative"><div class="timeline-row" style="width:${CHART_W}px;position:relative">${tlHTML}</div><div style="position:relative">${gridHTML}${barHTML}<div class="today-line" style="left:${todayPx}px"></div></div></div></div>${ndHTML}`;
+    document.getElementById('detailPanel').classList.remove('open');
+    document.getElementById('detailPanel').innerHTML='';
+    openId=null;
+}
+
+function toggleDetail(id){
+    const p=document.getElementById('detailPanel');
+    if(openId===id){p.classList.remove('open');p.innerHTML='';openId=null;return}
+    openId=id;const r=robots.find(x=>x.id===id);if(!r)return;const c=AREA_COLORS[r.area],off=isOff(r);
+    p.innerHTML=`<div class="detail-header"><span class="area-dot" style="background:${c};width:14px;height:14px"></span><span class="dh-name">${r.id} \u2014 ${r.name}</span>${r.nick?`<span class="dh-nick">(${r.nick})</span>`:''}<span class="dh-badge" style="background:${off?'var(--danger)':'var(--success)'}">${off?'DESATIVO':'ATIVO'}</span></div><div class="detail-grid"><div class="detail-item"><div class="dl">\u00c1rea</div><div class="dv">${r.area}</div></div><div class="detail-item"><div class="dl">Descri\u00e7\u00e3o</div><div class="dv">${r.desc}</div></div><div class="detail-item"><div class="dl">Sistemas</div><div class="dv">${r.sys}</div></div><div class="detail-item"><div class="dl">Data Implementa\u00e7\u00e3o (PRD)</div><div class="dv">${fD(r.impl)}</div></div><div class="detail-item"><div class="dl">Data Elimina\u00e7\u00e3o</div><div class="dv">${r.elim?fD(r.elim):'\u2014'}</div></div><div class="detail-item"><div class="dl">Taxa de Sucesso (M\u00e9dia 2026)</div><div class="dv hl">${fP(r.sr)}</div></div><div class="detail-item"><div class="dl">Atividades Tratadas (M\u00e9dia 2026)</div><div class="dv hl">${fN(r.act)}/m\u00eas</div></div><div class="detail-item"><div class="dl">Poupan\u00e7a (M\u00e9dia 2026)</div><div class="dv hl">${fE(r.sav)}/m\u00eas</div></div></div>`;
+    p.classList.add('open');p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function toggleDetail34(){
+    const p=document.getElementById('detailPanel'),id='RPA34';
+    if(openId===id){p.classList.remove('open');p.innerHTML='';openId=null;return}
+    openId=id;const r=robots.find(x=>x.num===34),c=AREA_COLORS[r.area];
+    p.innerHTML=`<div class="detail-header"><span class="area-dot" style="background:${c};width:14px;height:14px"></span><span class="dh-name">${r.id} \u2014 ${r.name}</span><span class="dh-badge" style="background:var(--warning);color:#fff">SEM DATA PRD</span></div><div class="detail-grid"><div class="detail-item"><div class="dl">\u00c1rea</div><div class="dv">${r.area}</div></div><div class="detail-item"><div class="dl">Descri\u00e7\u00e3o</div><div class="dv">${r.desc}</div></div><div class="detail-item"><div class="dl">Sistemas</div><div class="dv">${r.sys}</div></div><div class="detail-item"><div class="dl">Data PRD</div><div class="dv">Sem data</div></div><div class="detail-item"><div class="dl">Taxa de Sucesso</div><div class="dv hl">${fP(r.sr)}</div></div><div class="detail-item"><div class="dl">Atividades</div><div class="dv hl">${fN(r.act)}/m\u00eas</div></div><div class="detail-item"><div class="dl">Poupan\u00e7a</div><div class="dv hl">${fE(r.sav)}/m\u00eas</div></div></div>`;
+    p.classList.add('open');p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function toggleDetailEMP(id){
+    const p=document.getElementById('detailPanel');
+    if(openId===id){p.classList.remove('open');p.innerHTML='';openId=null;return}
+    openId=id;const e=empRobots.find(x=>x.id===id);if(!e)return;const c=AREA_COLORS[e.area]||'#666';
+    p.innerHTML=`<div class="detail-header"><span class="area-dot" style="background:${c};width:14px;height:14px"></span><span class="dh-name">${e.id} \u2014 ${e.name}</span><span class="dh-badge" style="background:var(--warning);color:#fff">EMP</span></div><div class="detail-grid"><div class="detail-item"><div class="dl">\u00c1rea</div><div class="dv">${e.area}</div></div><div class="detail-item"><div class="dl">Descri\u00e7\u00e3o</div><div class="dv">${e.desc}</div></div><div class="detail-item"><div class="dl">Sistemas</div><div class="dv">${e.sys}</div></div></div>`;
+    p.classList.add('open');p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function showTT(ev,id){
+    const r=robots.find(x=>x.id===id);if(!r)return;const tt=document.getElementById('tooltip'),off=isOff(r);
+    const st=off?`<span style="color:var(--danger)">Desativo</span>`:`<span style="color:var(--success)">Ativo</span>`;
+    tt.innerHTML=`<div class="tt-name">${r.id} \u2014 ${r.name}${r.nick?' ('+r.nick+')':''}</div><div class="tt-row"><span class="tt-l">Estado:</span><span class="tt-v">${st}</span></div><div class="tt-row"><span class="tt-l">\u00c1rea:</span><span class="tt-v">${r.area}</span></div><div class="tt-row"><span class="tt-l">PRD:</span><span class="tt-v">${fD(r.impl)}</span></div>${r.elim?`<div class="tt-row"><span class="tt-l">Eliminado:</span><span class="tt-v">${fD(r.elim)}</span></div>`:''}<div class="tt-row"><span class="tt-l">Sucesso:</span><span class="tt-v">${fP(r.sr)}</span></div><div class="tt-row"><span class="tt-l">Atividades:</span><span class="tt-v">${fN(r.act)}/m\u00eas</span></div><div class="tt-row"><span class="tt-l">Poupan\u00e7a:</span><span class="tt-v">${fE(r.sav)}/m\u00eas</span></div>`;
+    tt.style.display='block';tt.style.left=(ev.clientX+15)+'px';tt.style.top=(ev.clientY+15)+'px';
+}
+function moveTT(ev){const tt=document.getElementById('tooltip');let x=ev.clientX+15,y=ev.clientY+15;if(x+310>window.innerWidth)x=ev.clientX-310;if(y+200>window.innerHeight)y=ev.clientY-200;tt.style.left=x+'px';tt.style.top=y+'px'}
+function hideTT(){document.getElementById('tooltip').style.display='none'}
+
+buildSummary();buildFilters();buildLegend();renderGantt();
+</script>
+</body>
+</html>
